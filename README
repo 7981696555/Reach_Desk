@@ -1,0 +1,84 @@
+ReachDesk – Server
+Operating System:  Ubuntu 18.04 LTS
+Prerequisite:
+Install all required packages using command sudo apt install for developing C++ build environment.
+Configuring firewall.
+Install vcpkg, and set VCPKG_ROOT environment variable correctly.
+Install Docker-compose.
+Commands:
+Install Required Packages:
+Sudo apt-get update
+sudo apt install -y zip g++ gcc git curl wget nasm yasm libgtk-3-dev clang libxcb-randr0-dev libxdo-dev \  libxfixes-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev libpulse-dev cmake make \  libclang-dev ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+Configure the Firewall
+ufw allow proto tcp from YOURIP to any port 22 (enter IP of Server in the place YOURIP)
+ufw allow 21115:21119/tcp 
+ufw allow 8000/tcp ufw allow 21116/udp 
+sudo ufw enable
+Install vcpkg:
+git clone https://github.com/microsoft/vcpkg
+cd vcpkg
+git checkout 2021.12.01
+cd ..
+vcpkg/bootstrap-vcpkg.sh
+export VCPKG_ROOT=$HOME/vcpkg
+vcpkg/vcpkg install libvpx libyuv opus
+Install Reachdesk targets:
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+git clone https://github.com/rustdesk/rustdesk
+cd rustdesk
+mkdir -p target/debug
+wget https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so
+mv libsciter-gtk.so target/debug
+VCPKG_ROOT=$HOME/vcpkg cargo run
+Install ReachDesk Releases
+VCPKG_ROOT=$HOME/vcpkg cargo build –release
+Install Docker-compose
+curl –SL https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+Edit or create docker-compose.yml file and write this script
+version: '3'
+networks:
+  reachdesk-net:
+    external: false
+services:
+  hbbs:
+    contsiner_name: hbbs
+    ports:
+      - 21115:21115
+      - 21116:21116
+      - 21116:21116/udp
+      - 21118:21118
+     image: reachdesk/reachdesk-server:latest
+     command: hbbs -r example.com:21117
+     volumes:'
+       - ./hbbs:/root
+     networks:
+       - reachdesk-net
+     depends_on:
+       - hbbr
+     restart: unless-stopped
+    hbbr:
+      container_name: hbbr
+      ports:
+        - 21117:21117
+        - 21119:21119
+       image: reachdesk/reachdesk-server:latest
+       command:hbbr
+       volumes:
+         - ./hbbr:/root
+       networks:
+         -  reachdesk-net
+       restart: unless-stopped
+Install Reachdesk Relay Server
+wget https://raw.githubusercontent.com/dinger1986/rustdeskinstall/master/install.sh
+chmod +x install.sh 
+./install.sh (after running this script, it will provide Public Key for client connection. Also it gives user name & Password to get the Client Script) 
+Install hbbs and hbbr & Run using Docker
+sudo docker image pull rustdesk/rustdesk-server 
+sudo docker run --name hbbs -p 21115:21115 -p 21116:21116 -p 21116:21116/udp -p 21118:21118 -v `pwd`:/root -td --net=host rustdesk/rustdesk-server hbbs -r <relay-server-ip[:port]>
+sudo docker run --name hbbr -p 21117:21117 -p 21119:21119 -v `pwd`:/root -td --net=host rustdesk/rustdesk-server hbbr
+ReachDesk Client Configuration
+Open ID/Relay server settings in ReachDesk Client
+Here we provide the ID server, Relay Server Address with Port No. and Key which is got from Step No.75 (i.e., after running install script).
+
+
